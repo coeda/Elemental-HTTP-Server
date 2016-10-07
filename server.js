@@ -2,10 +2,9 @@
 const http = require ('http');
 const fs = require ('fs');
 const PORT = 3000;
-let storedPages = ['<li><a href="/hydrogen.html">Hydrogen</a>','</li><li><a href="/helium.html">Helium</a></li>'];
+let storedPages = ['<li><a href="/hydrogen.html">Hydrogen</a></li>','<li><a href="/helium.html">Helium</a></li>'];
 
 http.createServer((request, response) => {
-  console.log(request.url);
   let headers = request.headers;
   let method = request.method;
   let urlRequested = request.url;
@@ -24,7 +23,7 @@ http.createServer((request, response) => {
 <body>
   <h1>The Elements</h1>
   <h2>These are all the known elements.</h2>
-  <h3>These are 2</h3>
+  <h3>These are ${storedPages.length}</h3>
   <ol>
   ${storedPages.join('\n')}
   </ol>
@@ -50,7 +49,6 @@ http.createServer((request, response) => {
   };
 
   if(urlRequested === '/'){
-    console.log('hit')
     urlRequested = '/index.html';
     type = 'html';
   } else if(urlRequested === '/css/styles.css'){
@@ -96,24 +94,70 @@ http.createServer((request, response) => {
       break;
     case 'POST':
     let newPage;
+    fs.readFile('public' + urlRequested, (err,file) => {
+      if (err){
       fs.writeFile(`public/${headers.element.toLowerCase()}.html`, pageTemplate(headers.element.toLowerCase(), headers.atomicnumber, headers.description, headers.symbol ), (err) => {
         if(err){
           return console.log(err);
         }
         console.log(`${headers.element.toLowerCase()}.html was saved`);
-        newPage = `</li><li><a href="/${headers.element}.html">${headers.element}</a></li>`;
+        newPage = `<li><a href="/${headers.element.toLowerCase()}.html">${headers.element}</a></li>`;
         storedPages.push(newPage);
         fs.writeFile('public/index.html', indexTemplate(), (err) => {
           if(err){
             return console.log(err);
           }
         });
-        response.end();
       });
+      } else {
+        console.log('file already exists');
+      }
+      response.end();
+    });
+
     break;
     case 'PUT':
       //do post stuff
+      fs.readFile('public' + urlRequested, (err,file) => {
+        if(err){
+          console.log('file does not exist');
+        } else {
+          fs.writeFile(`public/${headers.element.toLowerCase()}.html`, pageTemplate(headers.element.toLowerCase(), headers.atomicnumber, headers.description, headers.symbol ), (err) => {
+            if(err){
+              return console.log(err);
+            }
+            console.log(`${headers.element.toLowerCase()}.html was edited`);
+          });
+        }
+        response.end();
+      });
     break;
+    case 'DELETE':
+      fs.readFile('public' + urlRequested, (err, file) => {
+        if(err){
+          console.log('file was not found');
+        } else {
+          let deletedIndex = storedPages.indexOf(`<li><a href="/${headers.element.toLowerCase()}.html">${headers.element}</a></li>`);
+          if(deletedIndex > -1){
+            storedPages.splice(deletedIndex, 1);
+            console.log(storedPages);
+          }
+          fs.unlink('public' + urlRequested, (err) => {
+            if(err){
+              console.log('was unable to delete');
+            }
+            console.log('deleted ' + urlRequested);
+          });
+          fs.writeFile('public/index.html', indexTemplate(), (err) => {
+            if(err){
+              return console.log(err);
+            }
+            console.log('updated index');
+          });
+        }
+        response.end();
+      });
+
   }
 
 
